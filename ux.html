@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#01875f">
+<title>UXStore</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%2710%27 fill=%27%2301875f%27/%3E%3Cpath d=%27M10.5 12v7a5.5 5.5 0 0 0 11 0v-4%27 fill=%27none%27 stroke=%27%23fff%27 stroke-width=%273.2%27 stroke-linecap=%27round%27/%3E%3Ccircle cx=%2721.5%27 cy=%279.5%27 r=%272.4%27 fill=%27%23fff%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><div class="wrap">
+  <div class="top"><div class="logo">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34c38f"/><stop offset="1" stop-color="#01875f"/></linearGradient></defs><rect width="32" height="32" rx="10" fill="url(#lg)"/><path d="M10.5 12v7a5.5 5.5 0 0 0 11 0v-4" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><circle cx="21.5" cy="9.5" r="2.4" fill="#fff"/></svg>UXStore
+  </div></div>
+  <div class="search"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 14 15.5l.3.3v.8l5 5 1.5-1.5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+    <input id="q" type="search" placeholder="Cari aplikasi atau game" autocomplete="off"></div>
+</div></header>
+
+<main class="wrap">
+  <section id="vList">
+    <div class="chips" id="chips"></div>
+    <h2 id="ttl">Untuk Anda</h2>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section id="vUp" class="hide">
+    <h2 style="margin-top:16px">Upload aplikasi</h2>
+    <p class="kv">Pengajuan akan ditinjau admin sebelum tampil di UXStore.</p>
+    <form id="fUp" novalidate>
+      <label>Nama aplikasi</label><input class="f" name="name" maxlength="40" required>
+      <label>Kategori</label><select class="f" name="category" id="selCat"></select>
+      <label>Deskripsi</label><textarea class="f" name="description" rows="4" maxlength="1000" required></textarea>
+      <div class="row">
+        <div><label>Versi</label><input class="f" name="version" maxlength="20" placeholder="1.0.0" required></div>
+        <div><label>Ukuran</label><input class="f" name="sizeValue" type="number" min="0.1" step="any" required></div>
+        <div><label>Satuan</label><select class="f" name="sizeUnit"><option>MB</option><option>GB</option></select></div>
+      </div>
+      <label>Email dukungan</label><input class="f" name="supportEmail" type="email" maxlength="100" required>
+      <label>Link download (eksternal)</label><input class="f" name="downloadUrl" type="url" maxlength="500" placeholder="https://" required>
+      <label>Ikon aplikasi (gambar, maks. 2 MB)</label>
+      <input class="f" id="iconFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+      <img id="pv" class="pv hide" alt="">
+      <button class="btn" id="btnUp" style="width:100%;margin-top:18px;padding:12px">Kirim pengajuan</button>
+    </form>
+    <h2 style="margin-top:30px">Aplikasi saya</h2>
+    <p class="kv">Perbarui link download, versi, dan ukuran aplikasi yang sudah tayang. Pembaruan ditinjau admin dulu.</p>
+    <div class="list" id="mine" style="margin-top:8px"></div>
+  </section>
+</main>
+
+<div class="modal" id="md"><div class="sheet" id="sheet"></div></div>
+
+<nav class="bar" id="nav">
+  <button data-t="home" class="on"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Beranda</button>
+  <button data-t="game"><svg viewBox="0 0 24 24"><path d="M21 6H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1zm-10 7H9v2H7v-2H5v-2h2V9h2v2h2zm4.5 2a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>Game</button>
+  <button data-t="apps"><svg viewBox="0 0 24 24"><path d="M4 8h4V4H4zm6 12h4v-4h-4zm-6 0h4v-4H4zm0-6h4v-4H4zm6 0h4v-4h-4zm6-10v4h4V4zm-6 4h4V4h-4zm6 6h4v-4h-4zm0 6h4v-4h-4z"/></svg>Aplikasi</button>
+  <button data-t="up"><svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>Upload</button>
+</nav>
+
+<script type="module">
+import { db, auth, configured, IMGBB_API_KEY, CATS, esc, safeUrl, sizeText, icon, toast, validateApp, validateUpd } from "./common.js";
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const $ = s => document.querySelector(s);
+const S = { apps: [], tab: "home", cat: "Semua", q: "", mine: [], pend: new Set() };
+const TITLES = { home: "Untuk Anda", game: "Game", apps: "Aplikasi" };
+
+if (!configured) toast("Isi config.js dengan konfigurasi Firebase Anda dulu.", false);
+$("#selCat").innerHTML = '<option value="">Pilih kategori</option>' + CATS.map(c => `<option>${c}</option>`).join("");
+
+// Sesi anonim: dibutuhkan Security Rules agar pengajuan hanya bisa dibuat oleh klien terautentikasi.
+// Aktifkan: Authentication > Sign-in method > Anonymous.
+const authReady = configured ? (auth.currentUser ? Promise.resolve() : signInAnonymously(auth).catch(e => { console.warn(e); })) : Promise.resolve();
+
+async function load() {
+  $("#list").innerHTML = '<div class="empty">Memuat…</div>';
+  try {
+    const snap = await getDocs(query(collection(db, "apps"), where("status", "==", "approved")));
+    S.apps = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  } catch (e) { console.error(e); toast("Gagal memuat data: " + e.code, false); S.apps = []; }
+  render();
+}
+
+function render() {
+  const cats = S.tab === "game" ? ["Game"] : S.tab === "apps" ? CATS.filter(c => c !== "Game") : CATS;
+  if (S.cat !== "Semua" && !cats.includes(S.cat)) S.cat = "Semua";
+  $("#chips").innerHTML = ["Semua", ...cats].map(c => `<button class="chip ${c === S.cat ? "on" : ""}" data-c="${c}">${c}</button>`).join("");
+  $("#ttl").textContent = TITLES[S.tab];
+  const q = S.q.toLowerCase();
+  const rows = S.apps.filter(a =>
+    (S.tab === "game" ? a.category === "Game" : S.tab === "apps" ? a.category !== "Game" : true) &&
+    (S.cat === "Semua" || a.category === S.cat) &&
+    (!q || a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)));
+  $("#list").innerHTML = rows.length ? rows.map(a => `
+    <div class="card" data-id="${esc(a.id)}">${icon(a)}
+      <div class="info"><b>${esc(a.name)}</b><small>${esc(a.category)} • ${esc(sizeText(a))}</small></div>
+      <button class="btn sm o">Detail</button></div>`).join("")
+    : '<div class="empty">Tidak ada aplikasi ditemukan.</div>';
+}
+
+function detail(id) {
+  const a = S.apps.find(x => x.id === id); if (!a) return;
+  $("#sheet").innerHTML = `
+    <div class="dh">${icon(a)}<div><h3>${esc(a.name)}</h3><small class="kv">${esc(a.category)}</small></div></div>
+    <div class="meta"><div><b>${esc(a.version)}</b>Versi</div><div><b>${esc(sizeText(a))}</b>Ukuran</div></div>
+    <a class="btn" style="display:block;text-align:center;text-decoration:none;padding:11px" href="${esc(safeUrl(a.downloadUrl))}" target="_blank" rel="noopener noreferrer nofollow">Download</a>
+    <h2 style="margin-top:18px">Tentang aplikasi ini</h2>
+    <p class="desc">${esc(a.description)}</p>
+    <p class="kv">Dukungan: <a href="mailto:${esc(a.supportEmail)}" style="color:var(--g)">${esc(a.supportEmail)}</a></p>
+    <button class="btn o" id="cls" style="width:100%;margin-top:16px">Tutup</button>`;
+  $("#md").classList.add("show");
+  $("#cls").onclick = closeMd;
+}
+const closeMd = () => $("#md").classList.remove("show");
+$("#md").onclick = e => { if (e.target.id === "md") closeMd(); };
+
+function tab(t) {
+  S.tab = t;
+  document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  const up = t === "up";
+  $("#vUp").classList.toggle("hide", !up); $("#vList").classList.toggle("hide", up);
+  document.querySelector(".search").classList.toggle("hide", up);
+  if (!up) render(); else loadMine();
+  scrollTo(0, 0);
+}
+$("#nav").onclick = e => { const b = e.target.closest("button"); if (b) tab(b.dataset.t); };
+$("#chips").onclick = e => { const c = e.target.closest(".chip"); if (c) { S.cat = c.dataset.c; render(); } };
+$("#list").onclick = e => { const c = e.target.closest(".card"); if (c) detail(c.dataset.id); };
+$("#q").oninput = e => { S.q = e.target.value.trim(); render(); };
+
+$("#iconFile").onchange = e => {
+  const f = e.target.files[0], pv = $("#pv");
+  if (!f) return pv.classList.add("hide");
+  pv.src = URL.createObjectURL(f); pv.classList.remove("hide");
+};
+
+async function uploadIcon(file) {
+  const fd = new FormData(); fd.append("image", file);
+  const r = await fetch("https://api.imgbb.com/1/upload?key=" + encodeURIComponent(IMGBB_API_KEY), { method: "POST", body: fd });
+  const j = await r.json();
+  if (!r.ok || !j.success) throw new Error(j.error?.message || "Upload ikon gagal");
+  return j.data.url;
+}
+
+$("#fUp").onsubmit = async e => {
+  e.preventDefault();
+  if (!configured || IMGBB_API_KEY.startsWith("ISI_")) return toast("Isi config.js (Firebase & ImgBB) dulu.", false);
+  const f = new FormData(e.target), g = k => String(f.get(k) || "").trim();
+  const d = { name: g("name"), category: g("category"), description: g("description"), version: g("version"),
+    sizeValue: Number(g("sizeValue")), sizeUnit: g("sizeUnit"), supportEmail: g("supportEmail"), downloadUrl: g("downloadUrl") };
+  const err = validateApp(d);
+  if (err) return toast(err, false);
+  const file = $("#iconFile").files[0];
+  if (!file) return toast("Pilih gambar ikon.", false);
+  if (!/^image\/(png|jpe?g|webp|gif)$/.test(file.type)) return toast("Ikon harus PNG/JPG/WEBP/GIF.", false);
+  if (file.size > 2 * 1024 * 1024) return toast("Ukuran ikon maksimal 2 MB.", false);
+  const btn = $("#btnUp"); btn.disabled = true; btn.textContent = "Mengirim…";
+  try {
+    await authReady;
+    if (!auth.currentUser) throw new Error("Login anonim gagal. Aktifkan provider Anonymous di Firebase Authentication.");
+    d.iconUrl = await uploadIcon(file);
+    await addDoc(collection(db, "apps"), { ...d, status: "pending", uid: auth.currentUser.uid, createdAt: serverTimestamp() });
+    e.target.reset(); $("#pv").classList.add("hide");
+    toast("Pengajuan terkirim. Menunggu persetujuan admin."); loadMine();
+  } catch (er) { console.error(er); toast("Gagal: " + (er.message || er.code), false); }
+  btn.disabled = false; btn.textContent = "Kirim pengajuan";
+};
+
+const ST = { pending: "Menunggu persetujuan", approved: "Tayang", rejected: "Ditolak" };
+async function loadMine() {
+  if (!configured) return;
+  await authReady;
+  const u = auth.currentUser;
+  if (!u) { S.mine = []; return renderMine(); }
+  try {
+    const [a, p] = await Promise.all([
+      getDocs(query(collection(db, "apps"), where("uid", "==", u.uid))),
+      getDocs(query(collection(db, "updates"), where("uid", "==", u.uid)))]);
+    S.mine = a.docs.map(d => ({ id: d.id, ...d.data() })).sort((x, y) => (y.createdAt?.seconds || 0) - (x.createdAt?.seconds || 0));
+    S.pend = new Set(p.docs.map(d => d.data()).filter(x => x.status === "pending").map(x => x.appId));
+  } catch (e) { console.error(e); S.mine = []; }
+  renderMine();
+}
+function renderMine() {
+  $("#mine").innerHTML = S.mine.length ? S.mine.map(a => `
+    <div class="card" style="border:1px solid var(--b)">${icon(a)}
+      <div class="info"><b>${esc(a.name)}</b><small>${ST[a.status] || a.status} • v${esc(a.version)} • ${esc(sizeText(a))}</small></div>
+      ${a.status !== "approved" ? "" : S.pend.has(a.id) ? '<small class="kv">Pembaruan menunggu</small>' : `<button class="btn sm o" data-u="${esc(a.id)}">Perbarui</button>`}
+    </div>`).join("") : '<div class="empty">Belum ada pengajuan dari perangkat ini.</div>';
+}
+$("#mine").onclick = e => { const b = e.target.closest("button[data-u]"); if (b) openUpd(b.dataset.u); };
+
+function openUpd(id) {
+  const a = S.mine.find(x => x.id === id); if (!a) return;
+  $("#sheet").innerHTML = `<h2>Perbarui ${esc(a.name)}</h2><form id="fU" novalidate>
+    <label>Versi baru</label><input class="f" name="version" maxlength="20" value="${esc(a.version)}">
+    <div class="row"><div><label>Ukuran</label><input class="f" name="sizeValue" type="number" min="0.1" step="any" value="${esc(a.sizeValue)}"></div>
+    <div><label>Satuan</label><select class="f" name="sizeUnit">${["MB", "GB"].map(u => `<option ${u === a.sizeUnit ? "selected" : ""}>${u}</option>`).join("")}</select></div></div>
+    <label>Link download baru</label><input class="f" name="downloadUrl" type="url" maxlength="500" value="${esc(a.downloadUrl)}">
+    <div class="row" style="margin-top:18px"><button type="button" class="btn o" id="uC">Batal</button><button class="btn" id="uS">Kirim pembaruan</button></div></form>`;
+  $("#md").classList.add("show");
+  $("#uC").onclick = closeMd;
+  $("#fU").onsubmit = async ev => {
+    ev.preventDefault();
+    const fd = new FormData(ev.target), g = k => String(fd.get(k) || "").trim();
+    const d = { version: g("version"), sizeValue: Number(g("sizeValue")), sizeUnit: g("sizeUnit"), downloadUrl: g("downloadUrl") };
+    const err = validateUpd(d);
+    if (err) return toast(err, false);
+    const b = $("#uS"); b.disabled = true;
+    try {
+      await addDoc(collection(db, "updates"), { appId: id, ...d, status: "pending", uid: auth.currentUser.uid, createdAt: serverTimestamp() });
+      toast("Pembaruan terkirim. Menunggu persetujuan admin."); closeMd(); loadMine();
+    } catch (er) { console.error(er); toast("Gagal: " + (er.message || er.code), false); b.disabled = false; }
+  };
+}
+
+if (configured) load(); else render();
+</script>
+</body>
+</html>

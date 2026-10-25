@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>UXStore Admin</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%2710%27 fill=%27%2301875f%27/%3E%3Cpath d=%27M10.5 12v7a5.5 5.5 0 0 0 11 0v-4%27 fill=%27none%27 stroke=%27%23fff%27 stroke-width=%273.2%27 stroke-linecap=%27round%27/%3E%3Ccircle cx=%2721.5%27 cy=%279.5%27 r=%272.4%27 fill=%27%23fff%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<style>body{padding-bottom:30px}</style>
+</head>
+<body>
+<header><div class="wrap"><div class="top" style="margin:0;justify-content:space-between">
+  <div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34c38f"/><stop offset="1" stop-color="#01875f"/></linearGradient></defs><rect width="32" height="32" rx="10" fill="url(#lg)"/><path d="M10.5 12v7a5.5 5.5 0 0 0 11 0v-4" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><circle cx="21.5" cy="9.5" r="2.4" fill="#fff"/></svg>UXStore <span class="badge">Admin</span></div>
+  <button class="btn sm o hide" id="out">Keluar</button>
+</div></div></header>
+
+<main class="wrap" style="padding-top:16px">
+  <section id="vLogin" class="hide">
+    <h2>Masuk admin</h2>
+    <form id="fLogin">
+      <label>Email</label><input class="f" id="em" type="email" autocomplete="username" required>
+      <label>Password</label><input class="f" id="pw" type="password" autocomplete="current-password" required>
+      <button class="btn" id="btnLogin" style="width:100%;margin-top:16px;padding:12px">Masuk</button>
+    </form>
+  </section>
+
+  <section id="vAdmin" class="hide">
+    <div class="chips" id="tabs">
+      <button class="chip on" data-s="pending">Menunggu</button>
+      <button class="chip" data-s="approved">Dipublikasikan</button>
+      <button class="chip" data-s="rejected">Ditolak</button>
+      <button class="chip" data-s="upd">Pembaruan</button>
+    </div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<div class="modal" id="md"><div class="sheet" id="sheet"></div></div>
+
+<script type="module">
+import { db, auth, configured, CATS, esc, safeUrl, sizeText, icon, toast, validateApp } from "./common.js";
+import { collection, getDocs, getDoc, doc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const $ = s => document.querySelector(s);
+const S = { apps: [], upd: [], st: "pending" };
+const LABEL = { pending: "menunggu", approved: "dipublikasikan", rejected: "ditolak" };
+
+function show(v) {
+  $("#vLogin").classList.toggle("hide", v !== "login");
+  $("#vAdmin").classList.toggle("hide", v !== "admin");
+  $("#out").classList.toggle("hide", v !== "admin");
+}
+
+if (!configured) { toast("Isi config.js dengan konfigurasi Firebase Anda dulu.", false); show("login"); }
+else onAuthStateChanged(auth, async user => {
+  // Akun anonim (pengunjung toko) atau tanpa sesi -> tampilkan login.
+  if (!user || user.isAnonymous) return show("login");
+  try {
+    // Hak admin ditentukan dokumen admins/{uid} yang dibuat manual di Firebase Console.
+    const a = await getDoc(doc(db, "admins", user.uid));
+    if (!a.exists()) { toast("Akun ini bukan admin.", false); await signOut(auth); return show("login"); }
+    show("admin"); load();
+  } catch (e) { console.error(e); toast("Gagal verifikasi admin: " + e.code, false); show("login"); }
+});
+
+$("#fLogin").onsubmit = async e => {
+  e.preventDefault();
+  const b = $("#btnLogin"); b.disabled = true;
+  try { await signInWithEmailAndPassword(auth, $("#em").value.trim(), $("#pw").value); $("#pw").value = ""; }
+  catch (er) { toast("Login gagal: email atau password salah.", false); }
+  b.disabled = false;
+};
+$("#out").onclick = () => signOut(auth);
+
+async function load() {
+  $("#list").innerHTML = '<div class="empty">Memuat…</div>';
+  try {
+    const snap = await getDocs(collection(db, "apps"));
+    S.apps = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    const us = await getDocs(collection(db, "updates"));
+    S.upd = us.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.status === "pending");
+  } catch (e) { console.error(e); toast("Gagal memuat: " + e.code, false); S.apps = []; S.upd = []; }
+  render();
+}
+
+function render() {
+  document.querySelectorAll("#tabs .chip").forEach(c => {
+    const n = c.dataset.s === "upd" ? S.upd.length : S.apps.filter(a => a.status === c.dataset.s).length;
+    c.classList.toggle("on", c.dataset.s === S.st);
+    c.textContent = `${{ pending: "Menunggu", approved: "Dipublikasikan", rejected: "Ditolak", upd: "Pembaruan" }[c.dataset.s]} (${n})`;
+  });
+  if (S.st === "upd") {
+    $("#list").innerHTML = S.upd.length ? S.upd.map(u => {
+      const a = S.apps.find(x => x.id === u.appId) || {};
+      return `<div class="panel" data-id="${esc(u.id)}">
+        <div class="dh">${icon(a)}<div><b style="font-size:16px">${esc(a.name || u.appId)}</b><div class="kv">Pengajuan pembaruan</div></div></div>
+        <div class="kv">Versi: <b>${esc(a.version)}</b> → <b>${esc(u.version)}</b></div>
+        <div class="kv">Ukuran: <b>${esc(a.sizeValue)} ${esc(a.sizeUnit)}</b> → <b>${esc(u.sizeValue)} ${esc(u.sizeUnit)}</b></div>
+        <div class="kv">Link lama: ${esc(a.downloadUrl)}</div>
+        <div class="kv">Link baru: <a href="${esc(safeUrl(u.downloadUrl))}" target="_blank" rel="noopener noreferrer nofollow" style="color:var(--g)">${esc(u.downloadUrl)}</a></div>
+        <div class="acts"><button class="btn sm" data-a="uok">Setujui</button><button class="btn sm r" data-a="uno">Tolak</button></div></div>`;
+    }).join("") : '<div class="empty">Tidak ada pembaruan menunggu.</div>';
+    return;
+  }
+  const rows = S.apps.filter(a => a.status === S.st);
+  $("#list").innerHTML = rows.length ? rows.map(a => `
+    <div class="panel" data-id="${esc(a.id)}">
+      <div class="dh">${icon(a)}<div><b style="font-size:16px">${esc(a.name)}</b><div class="kv">${esc(a.category)} • v${esc(a.version)} • ${esc(sizeText(a))}</div></div></div>
+      <p class="desc" style="margin:6px 0">${esc(a.description)}</p>
+      <div class="kv">Email: <b>${esc(a.supportEmail)}</b></div>
+      <div class="kv">Link: <a href="${esc(safeUrl(a.downloadUrl))}" target="_blank" rel="noopener noreferrer nofollow" style="color:var(--g)">${esc(a.downloadUrl)}</a></div>
+      <div class="acts">
+        ${a.status !== "approved" ? '<button class="btn sm" data-a="approved">Setujui</button>' : '<button class="btn sm o" data-a="pending">Tarik (draft)</button>'}
+        ${a.status !== "rejected" ? '<button class="btn sm r" data-a="rejected">Tolak</button>' : ""}
+        <button class="btn sm o" data-a="edit">Edit</button>
+        <button class="btn sm r" data-a="del">Hapus</button>
+      </div></div>`).join("")
+    : `<div class="empty">Tidak ada aplikasi ${LABEL[S.st]}.</div>`;
+}
+
+$("#tabs").onclick = e => { const c = e.target.closest(".chip"); if (c) { S.st = c.dataset.s; render(); } };
+
+$("#list").onclick = async e => {
+  const btn = e.target.closest("button[data-a]"); if (!btn) return;
+  const id = btn.closest(".panel").dataset.id, act = btn.dataset.a, a = S.apps.find(x => x.id === id);
+  if (act === "uok" || act === "uno") return applyUpd(id, act);
+  if (act === "edit") return edit(a);
+  try {
+    if (act === "del") {
+      if (!confirm(`Hapus "${a.name}" secara permanen?`)) return;
+      await deleteDoc(doc(db, "apps", id)); toast("Aplikasi dihapus.");
+    } else {
+      await updateDoc(doc(db, "apps", id), { status: act, reviewedAt: serverTimestamp(), reviewedBy: auth.currentUser.uid });
+      toast(act === "approved" ? "Aplikasi disetujui & tayang." : act === "rejected" ? "Pengajuan ditolak." : "Dikembalikan ke menunggu.");
+    }
+    load();
+  } catch (er) { console.error(er); toast("Gagal: " + er.code, false); }
+};
+
+async function applyUpd(id, act) {
+  const u = S.upd.find(x => x.id === id); if (!u) return;
+  try {
+    const b = writeBatch(db), meta = { reviewedAt: serverTimestamp(), reviewedBy: auth.currentUser.uid };
+    if (act === "uok") {
+      b.update(doc(db, "apps", u.appId), { version: u.version, sizeValue: u.sizeValue, sizeUnit: u.sizeUnit, downloadUrl: u.downloadUrl, updatedAt: serverTimestamp() });
+      b.update(doc(db, "updates", id), { status: "approved", ...meta });
+    } else b.update(doc(db, "updates", id), { status: "rejected", ...meta });
+    await b.commit();
+    toast(act === "uok" ? "Pembaruan diterapkan." : "Pembaruan ditolak.");
+    load();
+  } catch (er) { console.error(er); toast("Gagal: " + er.code, false); }
+}
+
+function edit(a) {
+  const f = (k, l, t = "text") => `<label>${l}</label><input class="f" name="${k}" type="${t}" value="${esc(a[k])}">`;
+  $("#sheet").innerHTML = `<h2>Edit aplikasi</h2><form id="fE" novalidate>
+    ${f("name", "Nama")}
+    <label>Kategori</label><select class="f" name="category">${CATS.map(c => `<option ${c === a.category ? "selected" : ""}>${c}</option>`).join("")}</select>
+    <label>Deskripsi</label><textarea class="f" name="description" rows="5">${esc(a.description)}</textarea>
+    <div class="row"><div>${f("version", "Versi")}</div><div>${f("sizeValue", "Ukuran", "number")}</div>
+    <div><label>Satuan</label><select class="f" name="sizeUnit">${["MB", "GB"].map(u => `<option ${u === a.sizeUnit ? "selected" : ""}>${u}</option>`).join("")}</select></div></div>
+    ${f("supportEmail", "Email dukungan", "email")}${f("downloadUrl", "Link download", "url")}${f("iconUrl", "URL ikon (ImgBB)", "url")}
+    <div class="row" style="margin-top:18px"><button type="button" class="btn o" id="eC">Batal</button><button class="btn">Simpan</button></div></form>`;
+  $("#md").classList.add("show");
+  $("#eC").onclick = closeMd;
+  $("#fE").onsubmit = async ev => {
+    ev.preventDefault();
+    const fd = new FormData(ev.target), g = k => String(fd.get(k) || "").trim();
+    const d = { name: g("name"), category: g("category"), description: g("description"), version: g("version"),
+      sizeValue: Number(g("sizeValue")), sizeUnit: g("sizeUnit"), supportEmail: g("supportEmail"), downloadUrl: g("downloadUrl"), iconUrl: g("iconUrl") };
+    const err = validateApp(d) || (!/^https?:\/\/\S+$/i.test(d.iconUrl) ? "URL ikon tidak valid." : null);
+    if (err) return toast(err, false);
+    try { await updateDoc(doc(db, "apps", a.id), d); toast("Perubahan disimpan."); closeMd(); load(); }
+    catch (er) { console.error(er); toast("Gagal: " + er.code, false); }
+  };
+}
+const closeMd = () => $("#md").classList.remove("show");
+$("#md").onclick = e => { if (e.target.id === "md") closeMd(); };
+</script>
+</body>
+</html>
