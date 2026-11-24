@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#01875f">
+<title>UXStore</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%2710%27 fill=%27%2301875f%27/%3E%3Cpath d=%27M10.5 12v7a5.5 5.5 0 0 0 11 0v-4%27 fill=%27none%27 stroke=%27%23fff%27 stroke-width=%273.2%27 stroke-linecap=%27round%27/%3E%3Ccircle cx=%2721.5%27 cy=%279.5%27 r=%272.4%27 fill=%27%23fff%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><div class="wrap">
+  <div class="top"><div class="logo">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34c38f"/><stop offset="1" stop-color="#01875f"/></linearGradient></defs><rect width="32" height="32" rx="10" fill="url(#lg)"/><path d="M10.5 12v7a5.5 5.5 0 0 0 11 0v-4" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><circle cx="21.5" cy="9.5" r="2.4" fill="#fff"/></svg>UXStore
+  </div></div>
+  <div class="search"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 14 15.5l.3.3v.8l5 5 1.5-1.5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+    <input id="q" type="search" placeholder="Cari aplikasi atau game" autocomplete="off"></div>
+</div></header>
+
+<main class="wrap">
+  <section id="vList">
+    <div class="chips" id="chips"></div>
+    <h2 id="ttl">Untuk Anda</h2>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section id="vUp" class="hide">
+    <h2 style="margin-top:16px">Upload aplikasi</h2>
+    <p class="kv">Pengajuan akan ditinjau admin sebelum tampil di UXStore.</p>
+    <form id="fUp" novalidate>
+      <label>Nama aplikasi</label><input class="f" name="name" maxlength="40" required>
+      <label>Kategori</label><select class="f" name="category" id="selCat"></select>
+      <label>Deskripsi</label><textarea class="f" name="description" rows="4" maxlength="1000" required></textarea>
+      <div class="row">
+        <div><label>Versi</label><input class="f" name="version" maxlength="20" placeholder="1.0.0" required></div>
+        <div><label>Ukuran</label><input class="f" name="sizeValue" type="number" min="0.1" step="any" required></div>
+        <div><label>Satuan</label><select class="f" name="sizeUnit"><option>MB</option><option>GB</option></select></div>
+      </div>
+      <label>Email dukungan</label><input class="f" name="supportEmail" type="email" maxlength="100" required>
+      <label>Link download (eksternal)</label><input class="f" name="downloadUrl" type="url" maxlength="500" placeholder="https://" required>
+      <label>Ikon aplikasi (gambar, maks. 2 MB)</label>
+      <input class="f" id="iconFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+      <img id="pv" class="pv hide" alt="">
+      <label>Screenshot (opsional, maks. 6 gambar, 2 MB per gambar)</label>
+      <input class="f" id="shotFiles" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+      <div class="thumbs" id="shotPv"></div>
+      <label>Video promosi (opsional, link YouTube atau TikTok)</label>
+      <input class="f" name="videoUrl" type="url" maxlength="200" placeholder="https://www.youtube.com/watch?v=…">
+      <button class="btn" id="btnUp" style="width:100%;margin-top:18px;padding:12px">Kirim pengajuan</button>
+    </form>
+    <h2 style="margin-top:30px">Aplikasi saya</h2>
+    <p class="kv">Perbarui link download, versi, dan ukuran aplikasi yang sudah tayang. Pembaruan ditinjau admin dulu.</p>
+    <div class="list" id="mine" style="margin-top:8px"></div>
+  </section>
+</main>
+
+<div class="modal" id="md"><div class="sheet" id="sheet"></div></div>
+<div class="lb" id="lb"></div>
+
+<nav class="bar" id="nav">
+  <button data-t="home" class="on"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Beranda</button>
+  <button data-t="game"><svg viewBox="0 0 24 24"><path d="M21 6H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1zm-10 7H9v2H7v-2H5v-2h2V9h2v2h2zm4.5 2a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>Game</button>
+  <button data-t="apps"><svg viewBox="0 0 24 24"><path d="M4 8h4V4H4zm6 12h4v-4h-4zm-6 0h4v-4H4zm0-6h4v-4H4zm6 0h4v-4h-4zm6-10v4h4V4zm-6 4h4V4h-4zm6 6h4v-4h-4zm0 6h4v-4h-4z"/></svg>Aplikasi</button>
+  <button data-t="up"><svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>Upload</button>
+</nav>
+
+<script type="module">
+import { db, auth, configured, IMGBB_API_KEY, CATS, esc, safeUrl, sizeText, icon, toast, validateApp, validateUpd, fmtCount, fmtAvg, stars, parseVideo } from "./common.js";
+import { collection, query, where, limit, getDocs, getDoc, setDoc, addDoc, updateDoc, writeBatch, increment, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const $ = s => document.querySelector(s);
+const S = { apps: [], stats: {}, tab: "home", cat: "Semua", q: "", mine: [], pend: new Set(), cur: null, rev: [], my: null, pick: 0 };
+const TITLES = { home: "Untuk Anda", game: "Game", apps: "Aplikasi" };
+const EMPTY = { downloads: 0, ratingSum: 0, ratingCount: 0 };
+const st = id => S.stats[id] || EMPTY;
+const avgOf = id => { const s = st(id); return s.ratingCount ? s.ratingSum / s.ratingCount : 0; };
+
+if (!configured) toast("Isi config.js dengan konfigurasi Firebase Anda dulu.", false);
+$("#selCat").innerHTML = '<option value="">Pilih kategori</option>' + CATS.map(c => `<option>${c}</option>`).join("");
+
+// Sesi anonim: dibutuhkan Security Rules (upload, ulasan, hitung unduhan).
+const authReady = configured ? (auth.currentUser ? Promise.resolve() : signInAnonymously(auth).catch(e => { console.warn(e); })) : Promise.resolve();
+
+async function load() {
+  $("#list").innerHTML = '<div class="empty">Memuat…</div>';
+  try {
+    const [a, s] = await Promise.all([
+      getDocs(query(collection(db, "apps"), where("status", "==", "approved"))),
+      getDocs(collection(db, "stats")).catch(() => ({ docs: [] }))]);
+    S.apps = a.docs.map(d => ({ id: d.id, ...d.data() })).sort((x, y) => (y.createdAt?.seconds || 0) - (x.createdAt?.seconds || 0));
+    S.stats = Object.fromEntries(s.docs.map(d => [d.id, d.data()]));
+  } catch (e) { console.error(e); toast("Gagal memuat data: " + e.code, false); S.apps = []; }
+  render();
+  const m = location.hash.match(/^#app=([\w-]+)$/);
+  if (m) detail(m[1]);
+}
+
+function render() {
+  const cats = S.tab === "game" ? ["Game"] : S.tab === "apps" ? CATS.filter(c => c !== "Game") : CATS;
+  if (S.cat !== "Semua" && !cats.includes(S.cat)) S.cat = "Semua";
+  $("#chips").innerHTML = ["Semua", ...cats].map(c => `<button class="chip ${c === S.cat ? "on" : ""}" data-c="${c}">${c}</button>`).join("");
+  $("#ttl").textContent = TITLES[S.tab];
+  const q = S.q.toLowerCase();
+  const rows = S.apps.filter(a =>
+    (S.tab === "game" ? a.category === "Game" : S.tab === "apps" ? a.category !== "Game" : true) &&
+    (S.cat === "Semua" || a.category === S.cat) &&
+    (!q || a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)));
+  $("#list").innerHTML = rows.length ? rows.map(a => `
+    <div class="card" data-id="${esc(a.id)}">${icon(a)}
+      <div class="info"><b>${esc(a.name)}</b><small>${esc(a.category)} • ${st(a.id).ratingCount ? fmtAvg(avgOf(a.id)) + " ★" : "Baru"} • ${esc(sizeText(a))}</small></div>
+      <button class="btn sm o">Detail</button></div>`).join("")
+    : '<div class="empty">Tidak ada aplikasi ditemukan.</div>';
+}
+
+// ---------- Detail ala Play Store ----------
+function statRow(a) {
+  const s = st(a.id);
+  return `<div class="srow">
+    <div><b>${s.ratingCount ? fmtAvg(avgOf(a.id)) + " ★" : "–"}</b><small>${fmtCount(s.ratingCount)} ulasan</small></div>
+    <div><b>${fmtCount(s.downloads)}</b><small>Unduhan</small></div>
+    <div><b>${esc(sizeText(a))}</b><small>Ukuran</small></div>
+    <div><b>${esc(a.version)}</b><small>Versi</small></div></div>`;
+}
+
+function detail(id) {
+  const a = S.apps.find(x => x.id === id); if (!a) return;
+  S.cur = id; S.rev = []; S.my = null; S.pick = 0;
+  history.replaceState(null, "", "#app=" + id);
+  const v = parseVideo(a.videoUrl), shots = (a.screenshots || []).filter(u => /^https:\/\//.test(u));
+  const tiles = [];
+  if (v) tiles.push(`<div class="tile vid" data-v="1">${v.thumb ? `<img src="${esc(v.thumb)}" alt="Video" loading="lazy" referrerpolicy="no-referrer">` : '<span class="tt">TikTok</span>'}<i class="play"></i></div>`);
+  shots.forEach((u, i) => tiles.push(`<img class="tile" data-s="${i}" src="${esc(safeUrl(u))}" alt="Screenshot ${i + 1}" loading="lazy" referrerpolicy="no-referrer">`));
+  $("#sheet").innerHTML = `
+    <div class="dh">${icon(a)}<div><h3>${esc(a.name)}</h3><small class="kv">${esc(a.category)}</small></div></div>
+    <div id="stat">${statRow(a)}</div>
+    <div class="row" style="margin:6px 0 4px">
+      <a class="btn" id="dl" style="flex:3;text-align:center;text-decoration:none;padding:11px" href="${esc(safeUrl(a.downloadUrl))}" target="_blank" rel="noopener noreferrer nofollow">Download</a>
+      <button class="btn o" id="sh" style="flex:1">Bagikan</button></div>
+    ${tiles.length ? `<div class="media" id="media">${tiles.join("")}</div>` : ""}
+    <h2 style="margin-top:18px">Tentang aplikasi ini</h2>
+    <p class="desc">${esc(a.description)}</p>
+    <h2>Rating dan ulasan</h2><div id="rv"><div class="empty">Memuat…</div></div>
+    <p class="kv" style="margin-top:14px">Dukungan: <a href="mailto:${esc(a.supportEmail)}" style="color:var(--g)">${esc(a.supportEmail)}</a></p>
+    <button class="btn o" id="cls" style="width:100%;margin-top:16px">Tutup</button>`;
+  $("#md").classList.add("show");
+  loadReviews(id);
+}
+
+async function ensureStats(id) {
+  if (S.stats[id]) return;
+  const r = doc(db, "stats", id), s = await getDoc(r);
+  if (!s.exists()) await setDoc(r, EMPTY);
+  S.stats[id] = s.exists() ? s.data() : { ...EMPTY };
+}
+
+async function countDl(id) {
+  try {
+    if (localStorage.getItem("dl_" + id)) return;   // 1 hitungan per perangkat
+    await authReady; if (!auth.currentUser) return;
+    await ensureStats(id);
+    await updateDoc(doc(db, "stats", id), { downloads: increment(1) });
+    localStorage.setItem("dl_" + id, "1");
+    S.stats[id] = { ...S.stats[id], downloads: S.stats[id].downloads + 1 };
+    const a = S.apps.find(x => x.id === id);
+    if (a && S.cur === id) $("#stat").innerHTML = statRow(a);
+  } catch (e) { console.warn(e); }
+}
+
+async function share(a) {
+  const url = location.href.split("#")[0] + "#app=" + a.id;
+  try {
+    if (navigator.share) return await navigator.share({ title: a.name, text: `Unduh ${a.name} di UXStore`, url });
+    await navigator.clipboard.writeText(url); toast("Link disalin.");
+  } catch (e) { if (e.name !== "AbortError") prompt("Salin link:", url); }
+}
+
+async function loadReviews(id) {
+  try {
+    await authReady;
+    const snap = await getDocs(query(collection(db, "reviews"), where("appId", "==", id), limit(50)));
+    S.rev = snap.docs.map(d => d.data()).sort((x, y) => (y.createdAt?.seconds || 0) - (x.createdAt?.seconds || 0));
+    S.my = auth.currentUser ? S.rev.find(r => r.uid === auth.currentUser.uid) || null : null;
+    S.pick = S.my?.rating || 0;
+  } catch (e) { console.error(e); S.rev = []; }
+  if (S.cur === id) renderRv(id);
+}
+
+const starPick = () => [1, 2, 3, 4, 5].map(n => `<button type="button" class="sb ${n <= S.pick ? "on" : ""}" data-n="${n}" aria-label="${n} bintang">★</button>`).join("");
+
+function renderRv(id) {
+  const s = st(id), cnt = [5, 4, 3, 2, 1].map(n => S.rev.filter(r => r.rating === n).length), tot = S.rev.length || 1;
+  $("#rv").innerHTML = `
+    <div class="rsum"><div class="big"><b>${s.ratingCount ? fmtAvg(avgOf(id)) : "–"}</b>${stars(avgOf(id))}<small>${fmtCount(s.ratingCount)} ulasan</small></div>
+      <div class="bars">${cnt.map((c, i) => `<div><span>${5 - i}</span><i><u style="width:${c / tot * 100}%"></u></i></div>`).join("")}</div></div>
+    <div class="panel"><b>${S.my ? "Ulasan Anda" : "Beri nilai aplikasi ini"}</b>
+      <div class="pick" id="pick">${starPick()}</div>
+      <input class="f" id="rvName" maxlength="30" placeholder="Nama (opsional)" value="${esc(S.my?.name === "Pengguna" ? "" : S.my?.name || "")}">
+      <textarea class="f" id="rvText" rows="3" maxlength="500" placeholder="Tulis ulasan (opsional)" style="margin-top:8px">${esc(S.my?.text || "")}</textarea>
+      <button class="btn" id="rvSend" style="margin-top:10px">${S.my ? "Perbarui ulasan" : "Kirim ulasan"}</button></div>
+    ${S.rev.map(r => `<div class="rv"><div class="rvh"><b>${esc(r.name || "Pengguna")}</b><small class="kv">${r.createdAt ? new Date(r.createdAt.seconds * 1000).toLocaleDateString("id-ID") : "Baru saja"}</small></div>${stars(r.rating)}${r.text ? `<p>${esc(r.text)}</p>` : ""}</div>`).join("")}`;
+}
+
+async function sendReview(id) {
+  if (!S.pick) return toast("Pilih jumlah bintang dulu.", false);
+  const btn = $("#rvSend"); btn.disabled = true;
+  try {
+    await authReady; const u = auth.currentUser;
+    if (!u) throw new Error("Login anonim gagal. Aktifkan provider Anonymous.");
+    await ensureStats(id);
+    const text = $("#rvText").value.trim().slice(0, 500), name = $("#rvName").value.trim().slice(0, 30) || "Pengguna";
+    const old = S.my, ref = doc(db, "reviews", id + "_" + u.uid), sref = doc(db, "stats", id), b = writeBatch(db);
+    if (old) {
+      b.set(ref, { appId: id, uid: u.uid, rating: S.pick, text, name, createdAt: old.createdAt, updatedAt: serverTimestamp() });
+      b.update(sref, { ratingSum: increment(S.pick - old.rating) });
+    } else {
+      b.set(ref, { appId: id, uid: u.uid, rating: S.pick, text, name, createdAt: serverTimestamp() });
+      b.update(sref, { ratingSum: increment(S.pick), ratingCount: increment(1) });
+    }
+    await b.commit();
+    const s = await getDoc(sref); S.stats[id] = s.data();
+    toast("Ulasan tersimpan."); $("#stat").innerHTML = statRow(S.apps.find(x => x.id === id));
+    await loadReviews(id); render();
+  } catch (er) { console.error(er); toast("Gagal: " + (er.message || er.code), false); btn.disabled = false; }
+}
+
+// Lightbox: screenshot & video (YouTube/TikTok)
+const lb = (html) => { $("#lb").innerHTML = html; $("#lb").classList.add("show"); };
+$("#lb").onclick = e => { if (e.target.id === "lb" || e.target.closest(".x")) { $("#lb").classList.remove("show"); $("#lb").innerHTML = ""; } };
+
+$("#sheet").onclick = e => {
+  const t = e.target, a = S.apps.find(x => x.id === S.cur); if (!a && !t.closest("#cls")) return;
+  if (t.closest("#cls")) return closeMd();
+  if (t.closest("#dl")) return countDl(a.id);       // biarkan link terbuka seperti biasa
+  if (t.closest("#sh")) return share(a);
+  if (t.closest("#rvSend")) return sendReview(a.id);
+  const sb = t.closest(".sb");
+  if (sb) { S.pick = +sb.dataset.n; $("#pick").innerHTML = starPick(); return; }
+  const tv = t.closest("[data-v]");
+  if (tv) { const v = parseVideo(a.videoUrl); if (!v) return;
+    return lb(`<button class="x" aria-label="Tutup">✕</button><iframe class="${v.type}" src="${esc(v.embed)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`); }
+  const ts = t.closest("[data-s]");
+  if (ts) lb(`<button class="x" aria-label="Tutup">✕</button><img src="${esc(safeUrl(a.screenshots[+ts.dataset.s]))}" alt="" referrerpolicy="no-referrer">`);
+};
+
+function closeMd() {
+  $("#md").classList.remove("show"); S.cur = null;
+  history.replaceState(null, "", location.pathname + location.search);
+}
+$("#md").onclick = e => { if (e.target.id === "md") closeMd(); };
+
+function tab(t) {
+  S.tab = t;
+  document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  const up = t === "up";
+  $("#vUp").classList.toggle("hide", !up); $("#vList").classList.toggle("hide", up);
+  document.querySelector(".search").classList.toggle("hide", up);
+  if (!up) render(); else loadMine();
+  scrollTo(0, 0);
+}
+$("#nav").onclick = e => { const b = e.target.closest("button"); if (b) tab(b.dataset.t); };
+$("#chips").onclick = e => { const c = e.target.closest(".chip"); if (c) { S.cat = c.dataset.c; render(); } };
+$("#list").onclick = e => { const c = e.target.closest(".card"); if (c) detail(c.dataset.id); };
+$("#q").oninput = e => { S.q = e.target.value.trim(); render(); };
+
+// ---------- Upload ----------
+const OKTYPE = /^image\/(png|jpe?g|webp|gif)$/;
+$("#iconFile").onchange = e => {
+  const f = e.target.files[0], pv = $("#pv");
+  if (!f) return pv.classList.add("hide");
+  pv.src = URL.createObjectURL(f); pv.classList.remove("hide");
+};
+$("#shotFiles").onchange = e => {
+  $("#shotPv").innerHTML = [...e.target.files].slice(0, 6).map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join("");
+};
+
+async function uploadImg(file) {
+  const fd = new FormData(); fd.append("image", file);
+  const r = await fetch("https://api.imgbb.com/1/upload?key=" + encodeURIComponent(IMGBB_API_KEY), { method: "POST", body: fd });
+  const j = await r.json();
+  if (!r.ok || !j.success) throw new Error(j.error?.message || "Upload gambar gagal");
+  return j.data.url;
+}
+
+$("#fUp").onsubmit = async e => {
+  e.preventDefault();
+  if (!configured || IMGBB_API_KEY.startsWith("ISI_")) return toast("Isi config.js (Firebase & ImgBB) dulu.", false);
+  const f = new FormData(e.target), g = k => String(f.get(k) || "").trim();
+  const d = { name: g("name"), category: g("category"), description: g("description"), version: g("version"),
+    sizeValue: Number(g("sizeValue")), sizeUnit: g("sizeUnit"), supportEmail: g("supportEmail"), downloadUrl: g("downloadUrl") };
+  if (g("videoUrl")) d.videoUrl = g("videoUrl");
+  const err = validateApp(d);
+  if (err) return toast(err, false);
+  const file = $("#iconFile").files[0], shots = [...$("#shotFiles").files];
+  if (!file) return toast("Pilih gambar ikon.", false);
+  if (shots.length > 6) return toast("Screenshot maksimal 6 gambar.", false);
+  for (const x of [file, ...shots]) {
+    if (!OKTYPE.test(x.type)) return toast("Gambar harus PNG/JPG/WEBP/GIF.", false);
+    if (x.size > 2 * 1024 * 1024) return toast(`"${x.name}" lebih dari 2 MB.`, false);
+  }
+  const btn = $("#btnUp"); btn.disabled = true; btn.textContent = "Mengirim…";
+  try {
+    await authReady;
+    if (!auth.currentUser) throw new Error("Login anonim gagal. Aktifkan provider Anonymous di Firebase Authentication.");
+    const [iconUrl, ...urls] = await Promise.all([file, ...shots].map(uploadImg));
+    d.iconUrl = iconUrl; if (urls.length) d.screenshots = urls;
+    await addDoc(collection(db, "apps"), { ...d, status: "pending", uid: auth.currentUser.uid, createdAt: serverTimestamp() });
+    e.target.reset(); $("#pv").classList.add("hide"); $("#shotPv").innerHTML = "";
+    toast("Pengajuan terkirim. Menunggu persetujuan admin."); loadMine();
+  } catch (er) { console.error(er); toast("Gagal: " + (er.message || er.code), false); }
+  btn.disabled = false; btn.textContent = "Kirim pengajuan";
+};
+
+const ST = { pending: "Menunggu persetujuan", approved: "Tayang", rejected: "Ditolak" };
+async function loadMine() {
+  if (!configured) return;
+  await authReady;
+  const u = auth.currentUser;
+  if (!u) { S.mine = []; return renderMine(); }
+  try {
+    const [a, p] = await Promise.all([
+      getDocs(query(collection(db, "apps"), where("uid", "==", u.uid))),
+      getDocs(query(collection(db, "updates"), where("uid", "==", u.uid)))]);
+    S.mine = a.docs.map(d => ({ id: d.id, ...d.data() })).sort((x, y) => (y.createdAt?.seconds || 0) - (x.createdAt?.seconds || 0));
+    S.pend = new Set(p.docs.map(d => d.data()).filter(x => x.status === "pending").map(x => x.appId));
+  } catch (e) { console.error(e); S.mine = []; }
+  renderMine();
+}
+function renderMine() {
+  $("#mine").innerHTML = S.mine.length ? S.mine.map(a => `
+    <div class="card" style="border:1px solid var(--b)">${icon(a)}
+      <div class="info"><b>${esc(a.name)}</b><small>${ST[a.status] || a.status} • v${esc(a.version)} • ${esc(sizeText(a))}${a.status === "approved" ? " • " + fmtCount(st(a.id).downloads) + " unduhan" : ""}</small></div>
+      ${a.status !== "approved" ? "" : S.pend.has(a.id) ? '<small class="kv">Pembaruan menunggu</small>' : `<button class="btn sm o" data-u="${esc(a.id)}">Perbarui</button>`}
+    </div>`).join("") : '<div class="empty">Belum ada pengajuan dari perangkat ini.</div>';
+}
+$("#mine").onclick = e => { const b = e.target.closest("button[data-u]"); if (b) openUpd(b.dataset.u); };
+
+function openUpd(id) {
+  const a = S.mine.find(x => x.id === id); if (!a) return;
+  S.cur = null;
+  $("#sheet").innerHTML = `<h2>Perbarui ${esc(a.name)}</h2><form id="fU" novalidate>
+    <label>Versi baru</label><input class="f" name="version" maxlength="20" value="${esc(a.version)}">
+    <div class="row"><div><label>Ukuran</label><input class="f" name="sizeValue" type="number" min="0.1" step="any" value="${esc(a.sizeValue)}"></div>
+    <div><label>Satuan</label><select class="f" name="sizeUnit">${["MB", "GB"].map(u => `<option ${u === a.sizeUnit ? "selected" : ""}>${u}</option>`).join("")}</select></div></div>
+    <label>Link download baru</label><input class="f" name="downloadUrl" type="url" maxlength="500" value="${esc(a.downloadUrl)}">
+    <div class="row" style="margin-top:18px"><button type="button" class="btn o" id="uC">Batal</button><button class="btn" id="uS">Kirim pembaruan</button></div></form>`;
+  $("#md").classList.add("show");
+  $("#uC").onclick = closeMd;
+  $("#fU").onsubmit = async ev => {
+    ev.preventDefault();
+    const fd = new FormData(ev.target), g = k => String(fd.get(k) || "").trim();
+    const d = { version: g("version"), sizeValue: Number(g("sizeValue")), sizeUnit: g("sizeUnit"), downloadUrl: g("downloadUrl") };
+    const err = validateUpd(d);
+    if (err) return toast(err, false);
+    const b = $("#uS"); b.disabled = true;
+    try {
+      await addDoc(collection(db, "updates"), { appId: id, ...d, status: "pending", uid: auth.currentUser.uid, createdAt: serverTimestamp() });
+      toast("Pembaruan terkirim. Menunggu persetujuan admin."); closeMd(); loadMine();
+    } catch (er) { console.error(er); toast("Gagal: " + (er.message || er.code), false); b.disabled = false; }
+  };
+}
+
+if (configured) load(); else render();
+</script>
+</body>
+</html>

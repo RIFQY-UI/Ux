@@ -31,6 +31,7 @@
       <button class="chip" data-s="approved">Dipublikasikan</button>
       <button class="chip" data-s="rejected">Ditolak</button>
       <button class="chip" data-s="upd">Pembaruan</button>
+      <button class="chip" data-s="rev">Ulasan</button>
     </div>
     <div id="list"></div>
   </section>
@@ -39,12 +40,12 @@
 <div class="modal" id="md"><div class="sheet" id="sheet"></div></div>
 
 <script type="module">
-import { db, auth, configured, CATS, esc, safeUrl, sizeText, icon, toast, validateApp } from "./common.js";
-import { collection, getDocs, getDoc, doc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { db, auth, configured, CATS, esc, safeUrl, sizeText, icon, toast, validateApp, fmtCount, fmtAvg, stars } from "./common.js";
+import { collection, getDocs, getDoc, doc, updateDoc, deleteDoc, writeBatch, increment, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const $ = s => document.querySelector(s);
-const S = { apps: [], upd: [], st: "pending" };
+const S = { apps: [], upd: [], rev: [], stats: {}, st: "pending" };
 const LABEL = { pending: "menunggu", approved: "dipublikasikan", rejected: "ditolak" };
 
 function show(v) {
@@ -81,15 +82,18 @@ async function load() {
     S.apps = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     const us = await getDocs(collection(db, "updates"));
     S.upd = us.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.status === "pending");
-  } catch (e) { console.error(e); toast("Gagal memuat: " + e.code, false); S.apps = []; S.upd = []; }
+    const [rs, ss] = await Promise.all([getDocs(collection(db, "reviews")), getDocs(collection(db, "stats"))]);
+    S.rev = rs.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    S.stats = Object.fromEntries(ss.docs.map(d => [d.id, d.data()]));
+  } catch (e) { console.error(e); toast("Gagal memuat: " + e.code, false); S.apps = []; S.upd = []; S.rev = []; }
   render();
 }
 
 function render() {
   document.querySelectorAll("#tabs .chip").forEach(c => {
-    const n = c.dataset.s === "upd" ? S.upd.length : S.apps.filter(a => a.status === c.dataset.s).length;
+    const n = c.dataset.s === "upd" ? S.upd.length : c.dataset.s === "rev" ? S.rev.length : S.apps.filter(a => a.status === c.dataset.s).length;
     c.classList.toggle("on", c.dataset.s === S.st);
-    c.textContent = `${{ pending: "Menunggu", approved: "Dipublikasikan", rejected: "Ditolak", upd: "Pembaruan" }[c.dataset.s]} (${n})`;
+    c.textContent = `${{ pending: "Menunggu", approved: "Dipublikasikan", rejected: "Ditolak", upd: "Pembaruan", rev: "Ulasan" }[c.dataset.s]} (${n})`;
   });
   if (S.st === "upd") {
     $("#list").innerHTML = S.upd.length ? S.upd.map(u => {
@@ -104,11 +108,20 @@ function render() {
     }).join("") : '<div class="empty">Tidak ada pembaruan menunggu.</div>';
     return;
   }
+  if (S.st === "rev") {
+    $("#list").innerHTML = S.rev.length ? S.rev.map(r => `<div class="panel" data-id="${esc(r.id)}">
+      <div class="rvh"><b>${esc((S.apps.find(x => x.id === r.appId) || {}).name || r.appId)}</b>${stars(r.rating)}</div>
+      <div class="kv">${esc(r.name)} • ${r.createdAt ? new Date(r.createdAt.seconds * 1000).toLocaleDateString("id-ID") : ""}</div>
+      ${r.text ? `<p class="desc" style="margin:6px 0">${esc(r.text)}</p>` : ""}
+      <div class="acts"><button class="btn sm r" data-a="rdel">Hapus ulasan</button></div></div>`).join("") : '<div class="empty">Belum ada ulasan.</div>';
+    return;
+  }
   const rows = S.apps.filter(a => a.status === S.st);
   $("#list").innerHTML = rows.length ? rows.map(a => `
     <div class="panel" data-id="${esc(a.id)}">
       <div class="dh">${icon(a)}<div><b style="font-size:16px">${esc(a.name)}</b><div class="kv">${esc(a.category)} • v${esc(a.version)} • ${esc(sizeText(a))}</div></div></div>
       <p class="desc" style="margin:6px 0">${esc(a.description)}</p>
+      <div class="kv">Unduhan: <b>${fmtCount((S.stats[a.id] || {}).downloads)}</b> • Rating: <b>${(S.stats[a.id] || {}).ratingCount ? fmtAvg(S.stats[a.id].ratingSum / S.stats[a.id].ratingCount) + " ★ (" + S.stats[a.id].ratingCount + ")" : "belum ada"}</b> • Screenshot: <b>${(a.screenshots || []).length}</b> • Video: <b>${a.videoUrl ? "ya" : "tidak"}</b></div>
       <div class="kv">Email: <b>${esc(a.supportEmail)}</b></div>
       <div class="kv">Link: <a href="${esc(safeUrl(a.downloadUrl))}" target="_blank" rel="noopener noreferrer nofollow" style="color:var(--g)">${esc(a.downloadUrl)}</a></div>
       <div class="acts">
@@ -126,6 +139,7 @@ $("#list").onclick = async e => {
   const btn = e.target.closest("button[data-a]"); if (!btn) return;
   const id = btn.closest(".panel").dataset.id, act = btn.dataset.a, a = S.apps.find(x => x.id === id);
   if (act === "uok" || act === "uno") return applyUpd(id, act);
+  if (act === "rdel") return delRev(id);
   if (act === "edit") return edit(a);
   try {
     if (act === "del") {
@@ -138,6 +152,16 @@ $("#list").onclick = async e => {
     load();
   } catch (er) { console.error(er); toast("Gagal: " + er.code, false); }
 };
+
+async function delRev(id) {
+  const r = S.rev.find(x => x.id === id); if (!r || !confirm("Hapus ulasan ini?")) return;
+  try {
+    const b = writeBatch(db);
+    b.delete(doc(db, "reviews", id));
+    if (S.stats[r.appId]) b.update(doc(db, "stats", r.appId), { ratingSum: increment(-r.rating), ratingCount: increment(-1) });
+    await b.commit(); toast("Ulasan dihapus."); load();
+  } catch (er) { console.error(er); toast("Gagal: " + er.code, false); }
+}
 
 async function applyUpd(id, act) {
   const u = S.upd.find(x => x.id === id); if (!u) return;
@@ -162,6 +186,8 @@ function edit(a) {
     <div class="row"><div>${f("version", "Versi")}</div><div>${f("sizeValue", "Ukuran", "number")}</div>
     <div><label>Satuan</label><select class="f" name="sizeUnit">${["MB", "GB"].map(u => `<option ${u === a.sizeUnit ? "selected" : ""}>${u}</option>`).join("")}</select></div></div>
     ${f("supportEmail", "Email dukungan", "email")}${f("downloadUrl", "Link download", "url")}${f("iconUrl", "URL ikon (ImgBB)", "url")}
+    <label>URL screenshot (satu per baris, maks. 6, https)</label><textarea class="f" name="screenshots" rows="3">${esc((a.screenshots || []).join("\n"))}</textarea>
+    ${f("videoUrl", "Video YouTube / TikTok (opsional)", "url")}
     <div class="row" style="margin-top:18px"><button type="button" class="btn o" id="eC">Batal</button><button class="btn">Simpan</button></div></form>`;
   $("#md").classList.add("show");
   $("#eC").onclick = closeMd;
@@ -169,8 +195,10 @@ function edit(a) {
     ev.preventDefault();
     const fd = new FormData(ev.target), g = k => String(fd.get(k) || "").trim();
     const d = { name: g("name"), category: g("category"), description: g("description"), version: g("version"),
-      sizeValue: Number(g("sizeValue")), sizeUnit: g("sizeUnit"), supportEmail: g("supportEmail"), downloadUrl: g("downloadUrl"), iconUrl: g("iconUrl") };
-    const err = validateApp(d) || (!/^https?:\/\/\S+$/i.test(d.iconUrl) ? "URL ikon tidak valid." : null);
+      sizeValue: Number(g("sizeValue")), sizeUnit: g("sizeUnit"), supportEmail: g("supportEmail"), downloadUrl: g("downloadUrl"), iconUrl: g("iconUrl"),
+      screenshots: g("screenshots").split(/\s+/).filter(Boolean), videoUrl: g("videoUrl") };
+    const err = validateApp(d) || (!/^https?:\/\/\S+$/i.test(d.iconUrl) ? "URL ikon tidak valid." : null)
+      || (d.screenshots.some(u => !/^https:\/\/\S+$/i.test(u)) ? "URL screenshot harus https://" : null);
     if (err) return toast(err, false);
     try { await updateDoc(doc(db, "apps", a.id), d); toast("Perubahan disimpan."); closeMd(); load(); }
     catch (er) { console.error(er); toast("Gagal: " + er.code, false); }
